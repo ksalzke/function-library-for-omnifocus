@@ -1,0 +1,228 @@
+/*{
+	"type": "library",
+	"targets": ["omnifocus"],
+	"identifier": "com.KaitlinSalzke.functionLibrary",
+	"version": "1.0"
+}*/
+var _ = (function() {
+  var functionLibrary = new PlugIn.Library(new Version("1.0"));
+
+  config = PlugIn.find("com.KaitlinSalzke.config").library("configLibrary");
+
+  functionLibrary.findTag = function(nameToFind) {
+    var targetTag = null;
+    tags.apply(function(tag) {
+      if (tag.name == nameToFind) {
+        targetTag = tag;
+        return ApplyResult.Stop;
+      }
+    });
+    return targetTag;
+  };
+
+  functionLibrary.getRootTask = function(childTask) {
+    rootTask = null;
+    index = 0;
+    tasksToCheck = childTask.containingProject.task.children;
+    while (rootTask === null && index < tasksToCheck.length) {
+      tasksToCheck[index].apply(function(task) {
+        if (task == childTask) {
+          rootTask = tasksToCheck[index];
+          return ApplyResult.Stop;
+        }
+      });
+      index++;
+    }
+    return rootTask;
+  };
+
+  functionLibrary.removeProjectTagsFromTasks = function(taskArray) {
+    taskArray.forEach(task => {
+      //check if this is a project; if not remove tags
+      if (
+        task.project == null &&
+        !config
+          .projectsWhereProjectTagsAllowed()
+          .includes(task.containingProject)
+      ) {
+        task.removeTags(config.projectTags());
+      }
+    });
+  };
+
+  functionLibrary.getAllRemainingTasks = function() {
+    allTasks = [];
+    library.apply(function(item) {
+      if (
+        item instanceof Project &&
+        (item.status == Project.Status.Active ||
+          item.status == Project.Status.OnHold) &&
+        item.task.hasChildren
+      ) {
+        item.task.children.forEach(tsk => {
+          if (
+            tsk.taskStatus !== Task.Status.Dropped &&
+            tsk.taskStatus !== Task.Status.Completed
+          ) {
+            allTasks.push(tsk);
+          }
+        });
+      }
+    });
+    return allTasks;
+  };
+
+  functionLibrary.getTaskWithId = function(taskId, tagToSearch) {
+    foundTask = null;
+    if (tagToSearch) {
+      i = 0;
+      while (foundTask == null && i < tagToSearch.tasks.length) {
+        if (tagToSearch.tasks[i].id.primaryKey == taskId) {
+          return tagToSearch.tasks[i];
+        }
+        i++;
+      }
+    }
+
+    library.apply(item => {
+      if (item.id.primaryKey == taskId) {
+        foundTask = item;
+        return ApplyResult.Stop;
+      }
+    });
+
+    inbox.apply(item => {
+      if (item.id.primaryKey == taskId) {
+        foundTask = item;
+        return ApplyResult.Stop;
+      }
+    });
+
+    return foundTask;
+  };
+
+  functionLibrary.addOneDayToDate = function(date) {
+    timeToAdd = new DateComponents();
+    timeToAdd.day = 1;
+    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
+  };
+
+  functionLibrary.removeOneDayFromDate = function(date) {
+    timeToAdd = new DateComponents();
+    timeToAdd.day = -1;
+    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
+  };
+
+  functionLibrary.isStalled = function(project) {
+    // return false if SAL
+    if (project.containsSingletonActions) {
+      return false;
+    }
+    // return false if has a next task
+    if (project.nextTask !== null && project.nextTask !== project.task) {
+      return false;
+    }
+    if (!project.task.hasChildren) {
+      return true;
+    }
+    project.task.children.forEach(task => {
+      if (task.taskStatus == Task.Status.Blocked) {
+        return false;
+      }
+    });
+    return true;
+  };
+
+  functionLibrary.allTags = function() {
+    allTags = [];
+    tags.apply(tag => allTags.push(tag));
+    return allTags;
+  };
+
+  functionLibrary.reorderTags = function(taskArray) {
+    // ***CONFIGURATION:*** set up items here. Tags will be sorted based on order in Omnifocus unless otherwise specified here.
+    firstTags = config.firstTags();
+    lastTags = config.lastTags();
+    ignoredTags = config.ignoredTagsForReorderTags();
+
+    allTags = functionLibrary.allTags();
+
+    // iterate through tasks
+    taskArray.forEach(function(task) {
+      // get assigned tags, except for excluded tags
+      assignedTags = [];
+      task.tags.forEach(function(tag) {
+        if (!ignoredTags.includes(tag)) {
+          assignedTags.push(tag);
+        }
+      });
+
+      // sort assigned tags based on tag index
+      sortedAssignedTags = assignedTags.sort(function(a, b) {
+        if (firstTags.includes(a)) {
+          aTagOrder = firstTags.indexOf(a);
+        } else if (lastTags.includes(a)) {
+          aTagOrder = allTags.length + lastTags.indexOf(a) + 1;
+        } else {
+          aTagOrder = firstTags.length + allTags.indexOf(a);
+        }
+
+        if (firstTags.includes(b)) {
+          bTagOrder = firstTags.indexOf(b);
+        } else if (lastTags.includes(b)) {
+          bTagOrder = allTags.length + lastTags.indexOf(b) + 1;
+        } else {
+          bTagOrder = firstTags.length + allTags.indexOf(b);
+        }
+
+        return aTagOrder > bTagOrder;
+      });
+
+      // remove all tags from task
+      task.removeTags(assignedTags);
+
+      // re-apply tags in order
+      task.addTags(sortedAssignedTags);
+    });
+  };
+
+  functionLibrary.getContainingFolder = function(task) {
+    project = task.project || task.containingProject || "";
+    let emptyResult = {
+      name: "No Folder"
+    };
+    if (project === "") {
+      return emptyResult;
+    }
+    foundFolder = null;
+    i = 0;
+    while (foundFolder === null && i < folders.length) {
+      topFolderToCheck = folders[i];
+      topFolderToCheck.apply(item => {
+        if (item === project) {
+          foundFolder = topFolderToCheck;
+          return ApplyResult.Stop;
+        }
+      });
+      i++;
+    }
+    if (foundFolder === null) {
+      let result = {
+        name: "No Folder"
+      };
+      return result;
+    }
+    return foundFolder || emptyResult;
+  };
+
+  // this doesn't seem to be working - not sure why.
+  functionLibrary.replaceTag = function(tasksArray, oldTag, newTag) {
+    tasksArray.forEach(function(task) {
+      task.addTag(oldTag);
+      task.removeTag(newTag);
+    });
+  };
+
+  return functionLibrary;
+})();
+_;
