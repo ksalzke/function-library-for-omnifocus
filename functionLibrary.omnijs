@@ -133,19 +133,13 @@ var _ = (function() {
     return true;
   };
 
-  functionLibrary.allTags = function() {
-    allTags = [];
-    tags.apply(tag => allTags.push(tag));
-    return allTags;
-  };
-
   functionLibrary.reorderTags = function(taskArray) {
     // ***CONFIGURATION:*** set up items here. Tags will be sorted based on order in Omnifocus unless otherwise specified here.
     firstTags = config.firstTags();
     lastTags = config.lastTags();
     ignoredTags = config.ignoredTagsForReorderTags();
 
-    allTags = functionLibrary.allTags();
+    allTags = flattenedTags;
 
     // iterate through tasks
     taskArray.forEach(function(task) {
@@ -215,7 +209,6 @@ var _ = (function() {
     return foundFolder || emptyResult;
   };
 
-  // this doesn't seem to be working - not sure why.
   functionLibrary.replaceTag = function(tasksArray, oldTag, newTag) {
     tasksArray.forEach(function(task) {
       task.addTag(oldTag);
