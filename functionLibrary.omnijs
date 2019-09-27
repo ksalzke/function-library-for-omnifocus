@@ -216,6 +216,10 @@ var _ = (function() {
     });
   };
 
+  functionLibrary.removeTrailingSpaceFromName = function (task) {
+      task.name = task.name.replace(/ $/,"");
+  }
+
   return functionLibrary;
 })();
 _;
