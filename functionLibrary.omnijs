@@ -167,7 +167,7 @@ var _ = (function() {
 		return foundFolder || emptyResult;
 	};
 
-	dependencyLibrary.getParent = task => {
+	functionLibrary.getParent = task => {
 		parent = null;
 		if (task.containingProject == null) {
 			project = inbox;
