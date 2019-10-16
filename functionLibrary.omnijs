@@ -5,195 +5,201 @@
 	"version": "1.0"
 }*/
 var _ = (function() {
-	var functionLibrary = new PlugIn.Library(new Version("1.0"));
+  var functionLibrary = new PlugIn.Library(new Version("1.0"));
 
-	config = PlugIn.find("com.KaitlinSalzke.config").library("configLibrary");
+  config = PlugIn.find("com.KaitlinSalzke.config").library("configLibrary");
 
-	functionLibrary.findTag = function(nameToFind) {
-		var targetTag = null;
-		tags.apply(function(tag) {
-			if (tag.name == nameToFind) {
-				targetTag = tag;
-				return ApplyResult.Stop;
-			}
-		});
-		return targetTag;
-	};
+  functionLibrary.findTag = function(nameToFind) {
+    var targetTag = null;
+    tags.apply(function(tag) {
+      if (tag.name == nameToFind) {
+        targetTag = tag;
+        return ApplyResult.Stop;
+      }
+    });
+    return targetTag;
+  };
 
-	functionLibrary.getRootTask = function(childTask) {
-		rootTask = null;
-		index = 0;
-		tasksToCheck = childTask.containingProject.task.children;
-		while (rootTask === null && index < tasksToCheck.length) {
-			tasksToCheck[index].apply(function(task) {
-				if (task == childTask) {
-					rootTask = tasksToCheck[index];
-					return ApplyResult.Stop;
-				}
-			});
-			index++;
-		}
-		return rootTask;
-	};
+  functionLibrary.getRootTask = function(childTask) {
+    rootTask = null;
+    index = 0;
+    tasksToCheck = childTask.containingProject.task.children;
+    while (rootTask === null && index < tasksToCheck.length) {
+      tasksToCheck[index].apply(function(task) {
+        if (task == childTask) {
+          rootTask = tasksToCheck[index];
+          return ApplyResult.Stop;
+        }
+      });
+      index++;
+    }
+    return rootTask;
+  };
 
-	functionLibrary.removeProjectTagsFromTasks = function(taskArray) {
-		taskArray.forEach(task => {
-			//check if this is a project; if not remove tags
-			if (
-				task.project == null &&
-				!config
-					.projectsWhereProjectTagsAllowed()
-					.includes(task.containingProject)
-			) {
-				task.removeTags(config.projectTags());
-			}
-		});
-	};
+  functionLibrary.removeProjectTagsFromTasks = function(taskArray) {
+    taskArray.forEach(task => {
+      //check if this is a project; if not remove tags
+      if (
+        task.project == null &&
+        !config
+          .projectsWhereProjectTagsAllowed()
+          .includes(task.containingProject)
+      ) {
+        task.removeTags(config.projectTags());
+      }
+    });
+  };
 
-	functionLibrary.getAllRemainingTasks = function() {
-		allTasks = [];
-		library.apply(function(item) {
-			if (
-				item instanceof Project &&
-				(item.status == Project.Status.Active ||
-					item.status == Project.Status.OnHold) &&
-				item.task.hasChildren
-			) {
-				item.task.children.forEach(tsk => {
-					if (
-						tsk.taskStatus !== Task.Status.Dropped &&
-						tsk.taskStatus !== Task.Status.Completed
-					) {
-						allTasks.push(tsk);
-					}
-				});
-			}
-		});
-		return allTasks;
-	};
+  functionLibrary.getAllRemainingTasks = function() {
+    allTasks = [];
+    library.apply(function(item) {
+      if (
+        item instanceof Project &&
+        (item.status == Project.Status.Active ||
+          item.status == Project.Status.OnHold) &&
+        item.task.hasChildren
+      ) {
+        item.task.children.forEach(tsk => {
+          if (
+            tsk.taskStatus !== Task.Status.Dropped &&
+            tsk.taskStatus !== Task.Status.Completed
+          ) {
+            allTasks.push(tsk);
+          }
+        });
+      }
+    });
+    return allTasks;
+  };
 
-	functionLibrary.getTaskWithId = function(taskId, tagToSearch) {
-		foundTask = null;
-		if (tagToSearch) {
-			i = 0;
-			while (foundTask == null && i < tagToSearch.tasks.length) {
-				if (tagToSearch.tasks[i].id.primaryKey == taskId) {
-					return tagToSearch.tasks[i];
-				}
-				i++;
-			}
-		}
+  functionLibrary.getTaskWithId = function(taskId, tagToSearch) {
+    foundTask = null;
+    if (tagToSearch) {
+      i = 0;
+      while (foundTask == null && i < tagToSearch.tasks.length) {
+        if (tagToSearch.tasks[i].id.primaryKey == taskId) {
+          return tagToSearch.tasks[i];
+        }
+        i++;
+      }
+    }
 
-		library.apply(item => {
-			if (item.id.primaryKey == taskId) {
-				foundTask = item;
-				return ApplyResult.Stop;
-			}
-		});
+    library.apply(item => {
+      if (item.id.primaryKey == taskId) {
+        foundTask = item;
+        return ApplyResult.Stop;
+      }
+    });
 
-		inbox.apply(item => {
-			if (item.id.primaryKey == taskId) {
-				foundTask = item;
-				return ApplyResult.Stop;
-			}
-		});
+    inbox.apply(item => {
+      if (item.id.primaryKey == taskId) {
+        foundTask = item;
+        return ApplyResult.Stop;
+      }
+    });
 
-		return foundTask;
-	};
+    return foundTask;
+  };
 
-	functionLibrary.addOneDayToDate = function(date) {
-		timeToAdd = new DateComponents();
-		timeToAdd.day = 1;
-		return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
-	};
+  functionLibrary.addOneDayToDate = function(date) {
+    timeToAdd = new DateComponents();
+    timeToAdd.day = 1;
+    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
+  };
 
-	functionLibrary.removeOneDayFromDate = function(date) {
-		timeToAdd = new DateComponents();
-		timeToAdd.day = -1;
-		return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
-	};
+  functionLibrary.removeOneDayFromDate = function(date) {
+    timeToAdd = new DateComponents();
+    timeToAdd.day = -1;
+    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
+  };
 
-	functionLibrary.isStalled = function(project) {
-		// return false if SAL
-		if (project.containsSingletonActions) {
-			return false;
-		}
-		// return false if has a next task
-		if (project.nextTask !== null && project.nextTask !== project.task) {
-			return false;
-		}
-		if (!project.task.hasChildren) {
-			return true;
-		}
-		hasBlockedChildren = false;
-		project.task.apply(child => {
-			if (child.taskStatus == Task.Status.Blocked) {
-				hasBlockedChildren = true;
-				return ApplyResult.Stop;
-			}
-		});
-		if (hasBlockedChildren) {
-			return false;
-		}
-		return true;
-	};
+  functionLibrary.adjustDateByDays = function(date, days) {
+    timeToAdd = new DateComponents();
+    timeToAdd.day = days;
+    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
+  };
 
-	functionLibrary.getContainingFolder = function(task) {
-		project = task.project || task.containingProject || "";
-		let emptyResult = {
-			name: "No Folder"
-		};
-		if (project === "") {
-			return emptyResult;
-		}
-		foundFolder = null;
-		i = 0;
-		while (foundFolder === null && i < folders.length) {
-			topFolderToCheck = folders[i];
-			topFolderToCheck.apply(item => {
-				if (item === project) {
-					foundFolder = topFolderToCheck;
-					return ApplyResult.Stop;
-				}
-			});
-			i++;
-		}
-		if (foundFolder === null) {
-			let result = {
-				name: "No Folder"
-			};
-			return result;
-		}
-		return foundFolder || emptyResult;
-	};
+  functionLibrary.isStalled = function(project) {
+    // return false if SAL
+    if (project.containsSingletonActions) {
+      return false;
+    }
+    // return false if has a next task
+    if (project.nextTask !== null && project.nextTask !== project.task) {
+      return false;
+    }
+    if (!project.task.hasChildren) {
+      return true;
+    }
+    hasBlockedChildren = false;
+    project.task.apply(child => {
+      if (child.taskStatus == Task.Status.Blocked) {
+        hasBlockedChildren = true;
+        return ApplyResult.Stop;
+      }
+    });
+    if (hasBlockedChildren) {
+      return false;
+    }
+    return true;
+  };
 
-	functionLibrary.getParent = task => {
-		parent = null;
-		if (task.containingProject == null) {
-			project = inbox;
-		} else {
-			project = task.containingProject.task;
-		}
-		project.apply(item => {
-			if (item.children.includes(task)) {
-				parent = item;
-				return ApplyResult.Stop;
-			}
-		});
-		return parent;
-	};
+  functionLibrary.getContainingFolder = function(task) {
+    project = task.project || task.containingProject || "";
+    let emptyResult = {
+      name: "No Folder"
+    };
+    if (project === "") {
+      return emptyResult;
+    }
+    foundFolder = null;
+    i = 0;
+    while (foundFolder === null && i < folders.length) {
+      topFolderToCheck = folders[i];
+      topFolderToCheck.apply(item => {
+        if (item === project) {
+          foundFolder = topFolderToCheck;
+          return ApplyResult.Stop;
+        }
+      });
+      i++;
+    }
+    if (foundFolder === null) {
+      let result = {
+        name: "No Folder"
+      };
+      return result;
+    }
+    return foundFolder || emptyResult;
+  };
 
-	functionLibrary.replaceTag = function(tasksArray, oldTag, newTag) {
-		tasksArray.forEach(function(task) {
-			task.addTag(oldTag);
-			task.removeTag(newTag);
-		});
-	};
+  functionLibrary.getParent = task => {
+    parent = null;
+    if (task.containingProject == null) {
+      project = inbox;
+    } else {
+      project = task.containingProject.task;
+    }
+    project.apply(item => {
+      if (item.children.includes(task)) {
+        parent = item;
+        return ApplyResult.Stop;
+      }
+    });
+    return parent;
+  };
 
-	functionLibrary.removeTrailingSpaceFromName = function(task) {
-		task.name = task.name.replace(/ $/, "");
-	};
+  functionLibrary.replaceTag = function(tasksArray, oldTag, newTag) {
+    tasksArray.forEach(function(task) {
+      task.addTag(oldTag);
+      task.removeTag(newTag);
+    });
+  };
 
-	return functionLibrary;
+  functionLibrary.removeTrailingSpaceFromName = function(task) {
+    task.name = task.name.replace(/ $/, "");
+  };
+
+  return functionLibrary;
 })();
 _;
