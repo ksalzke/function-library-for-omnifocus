@@ -101,18 +101,6 @@ var _ = (function() {
     return foundTask;
   };
 
-  functionLibrary.addOneDayToDate = function(date) {
-    timeToAdd = new DateComponents();
-    timeToAdd.day = 1;
-    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
-  };
-
-  functionLibrary.removeOneDayFromDate = function(date) {
-    timeToAdd = new DateComponents();
-    timeToAdd.day = -1;
-    return Calendar.current.dateByAddingDateComponents(date, timeToAdd);
-  };
-
   functionLibrary.adjustDateByDays = function(date, days) {
     timeToAdd = new DateComponents();
     timeToAdd.day = days;
